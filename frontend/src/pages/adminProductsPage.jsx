@@ -26,6 +26,7 @@ function AdminProductsPage() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -43,9 +44,9 @@ function AdminProductsPage() {
         httpService.get("/api/brands/"),
         httpService.get("/api/category/"),
       ]);
-      setProducts(p.data);
-      setBrands(b.data);
-      setCategories(c.data);
+      setProducts(p.data.sort((x, y) => y.id - x.id));
+      setBrands(b.data.sort((x, y) => y.id - x.id));
+      setCategories(c.data.sort((x, y) => y.id - x.id));
     } catch (ex) {
       if (ex.response?.status === 403) logout();
       setError("Could not load data.");
@@ -57,6 +58,7 @@ function AdminProductsPage() {
     setEditingId(null);
     setForm(emptyForm);
     setFormError("");
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -71,16 +73,23 @@ function AdminProductsPage() {
       category: product.category || "",
     });
     setFormError("");
+    setFormErrors({});
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.price || !form.brand || !form.category) {
-      setFormError("Name, Price, Brand and Category are required.");
+    let errors = {};
+    if (!form.name) errors.name = ["Name is required."];
+    if (!form.price) errors.price = ["Price is required."];
+    if (!form.brand) errors.brand = ["Brand is required."];
+    if (!form.category) errors.category = ["Category is required."];
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
     setSaving(true);
     setFormError("");
+    setFormErrors({});
     try {
       if (editingId) {
         const { data } = await httpService.put(`/api/products/${editingId}/`, form);
@@ -91,8 +100,11 @@ function AdminProductsPage() {
       }
       setShowModal(false);
     } catch (ex) {
-      const errData = ex.response?.data;
-      setFormError(errData ? JSON.stringify(errData) : "Failed to save product.");
+      if (ex.response?.status === 400 && ex.response.data) {
+        setFormErrors(ex.response.data);
+      } else {
+        setFormError("Failed to save product.");
+      }
     }
     setSaving(false);
   };
@@ -155,11 +167,11 @@ function AdminProductsPage() {
               <td>{categories.find((c) => c.id === p.category)?.title || p.category}</td>
               <td>{brands.find((b) => b.id === p.brand)?.title || p.brand}</td>
               <td>
-                <Button size="sm" variant="outline-primary" className="me-2" onClick={() => openEdit(p)}>
-                  <i className="fas fa-edit"></i>
+                <Button size="sm" variant="link" className="text-primary p-0 me-3" onClick={() => openEdit(p)}>
+                  <i className="fas fa-edit fs-5"></i>
                 </Button>
-                <Button size="sm" variant="outline-danger" onClick={() => confirmDelete(p)}>
-                  <i className="fas fa-trash"></i>
+                <Button size="sm" variant="link" className="text-danger p-0" onClick={() => confirmDelete(p)}>
+                  <i className="fas fa-trash fs-5"></i>
                 </Button>
               </td>
             </tr>
@@ -174,6 +186,7 @@ function AdminProductsPage() {
         </Modal.Header>
         <Modal.Body>
           {formError && <Message variant="danger">{formError}</Message>}
+          {formErrors.non_field_errors && <Message variant="danger">{formErrors.non_field_errors[0]}</Message>}
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
@@ -182,7 +195,11 @@ function AdminProductsPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. Samsung Galaxy S23"
+                  isInvalid={!!formErrors.name}
                 />
+                <Form.Control.Feedback type="invalid">
+                  {formErrors.name && formErrors.name[0]}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col md={3}>
@@ -193,7 +210,11 @@ function AdminProductsPage() {
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: e.target.value })}
                   placeholder="e.g. 29999"
+                  isInvalid={!!formErrors.price}
                 />
+                <Form.Control.Feedback type="invalid">
+                  {formErrors.price && formErrors.price[0]}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col md={3}>
@@ -204,7 +225,11 @@ function AdminProductsPage() {
                   value={form.countInStock}
                   onChange={(e) => setForm({ ...form, countInStock: e.target.value })}
                   placeholder="e.g. 10"
+                  isInvalid={!!formErrors.countInStock}
                 />
+                <Form.Control.Feedback type="invalid">
+                  {formErrors.countInStock && formErrors.countInStock[0]}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
           </Row>
@@ -215,12 +240,16 @@ function AdminProductsPage() {
                 <Form.Select
                   value={form.brand}
                   onChange={(e) => setForm({ ...form, brand: e.target.value })}
+                  isInvalid={!!formErrors.brand}
                 >
                   <option value="">-- Select Brand --</option>
                   {brands.map((b) => (
                     <option key={b.id} value={b.id}>{b.title}</option>
                   ))}
                 </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {formErrors.brand && formErrors.brand[0]}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
             <Col md={6}>
@@ -229,12 +258,16 @@ function AdminProductsPage() {
                 <Form.Select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  isInvalid={!!formErrors.category}
                 >
                   <option value="">-- Select Category --</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                 </Form.Select>
+                <Form.Control.Feedback type="invalid">
+                  {formErrors.category && formErrors.category[0]}
+                </Form.Control.Feedback>
               </Form.Group>
             </Col>
           </Row>
@@ -246,7 +279,11 @@ function AdminProductsPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder="Product description..."
+              isInvalid={!!formErrors.description}
             />
+            <Form.Control.Feedback type="invalid">
+              {formErrors.description && formErrors.description[0]}
+            </Form.Control.Feedback>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>

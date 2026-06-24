@@ -27,7 +27,7 @@ function CategoryCard({ category }) {
             <strong>{category.title}</strong>
           </Card.Title>
         </Link>
-        {/* <Card.Text as="p">{category.description}</Card.Text> */}
+
       </Card.Body>
     </Card>
   );

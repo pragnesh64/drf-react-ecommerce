@@ -1,4 +1,4 @@
-# Ecommerce website
+# ShopSphere
 Fully functional e-commerce website with back-end using Django and front-end using React. Integrated with Stripe for payments and used React-bootstrap components for styling. Project is live at: [https://proshop-web.vercel.app](https://proshop-web.vercel.app).
 
 ## Demo video
