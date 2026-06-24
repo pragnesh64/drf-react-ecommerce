@@ -16,17 +16,20 @@ import Logout from "./pages/logout";
 import ShippingPage from "./pages/shippingPage";
 import PlacerOrderPage from "./pages/placeOrderPage";
 import OrderDetailsPage from "./pages/orderDetailsPage";
-import "./App.css";
 import ConfirmationPage from "./pages/confirmationPage";
 import PaymentPage from "./pages/paymentPage";
 import SearchPage from "./pages/searchPage";
+import ContactPage from "./pages/contactPage";
+import WishlistPage from "./pages/wishlistPage";
+import AdminDashboard from "./pages/adminDashboard";
+import AdminProductsPage from "./pages/adminProductsPage";
+import AdminCatalogPage from "./pages/adminCatalogPage";
+import "./App.css";
 
 function App() {
   const [keyword, setKeyword] = useState("");
   const queryParams = new URLSearchParams(window.location.search);
-  const keywordParam = queryParams.get("keyword")
-    ? queryParams.get("keyword")
-    : "";
+  const keywordParam = queryParams.get("keyword") ? queryParams.get("keyword") : "";
 
   useEffect(() => {
     setKeyword(keywordParam);
@@ -42,10 +45,7 @@ function App() {
               <CartProvider>
                 <Routes>
                   <Route path="/" element={<HomePage />} exact />
-                  <Route
-                    path="/search"
-                    element={<SearchPage keyword={keyword} />}
-                  />
+                  <Route path="/search" element={<SearchPage keyword={keyword} />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/logout" element={<Logout />} />
                   <Route path="/register" element={<RegisterPage />} />
@@ -57,6 +57,11 @@ function App() {
                   <Route path="/confirmation" element={<ConfirmationPage />} />
                   <Route path="/placeorder" element={<PlacerOrderPage />} />
                   <Route path="/cart" element={<CartPage />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin/products" element={<AdminProductsPage />} />
+                  <Route path="/admin/catalog" element={<AdminCatalogPage />} />
                 </Routes>
               </CartProvider>
             </ProductsProvider>

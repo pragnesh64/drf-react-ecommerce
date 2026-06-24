@@ -4,16 +4,15 @@ import { Form, Button, Row, Col } from "react-bootstrap";
 import Message from "../components/message";
 import UserContext from "../context/userContext";
 import FormContainer from "../components/formContainer";
+import PasswordInput from "../components/passwordInput";
 
-function LoginPage(props) {
+function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const { userInfo, login, error } = useContext(UserContext);
   const navigate = useNavigate();
-  const [searchParams,setSearchParams] = useSearchParams()
-  const redirect = searchParams.get('redirect')
-    ? "/" + searchParams.get('redirect')
-    : "/";
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get("redirect") ? "/" + searchParams.get("redirect") : "/";
 
   useEffect(() => {
     if (userInfo && userInfo.username) navigate(redirect);
@@ -29,9 +28,7 @@ function LoginPage(props) {
     <FormContainer>
       <h1>Sign In</h1>
       {error.login && error.login.detail && (
-        <Message variant="danger">
-          <h4>{error.login.detail}</h4>
-        </Message>
+        <Message variant="danger"><h4>{error.login.detail}</h4></Message>
       )}
       <Form onSubmit={handleSubmit}>
         <Form.Group controlId="username" className="my-2">
@@ -40,42 +37,30 @@ function LoginPage(props) {
             type="text"
             placeholder="Enter Username"
             value={username}
-            onChange={(e) => {
-              setUsername(e.currentTarget.value);
-            }}
-          ></Form.Control>
-          <Form.Text>
-            {error.login && error.login.username && (
-              <Message variant="danger">{error.login.username}</Message>
-            )}
-          </Form.Text>
+            onChange={(e) => setUsername(e.currentTarget.value)}
+          />
+          {error.login && error.login.username && (
+            <Form.Text className="text-danger">{error.login.username}</Form.Text>
+          )}
         </Form.Group>
-        <Form.Group controlId="password" className="my-2">
-          <Form.Label>Password</Form.Label>
-          <Form.Control
-            type="password"
-            placeholder="Enter Password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.currentTarget.value);
-            }}
-          ></Form.Control>
-          <Form.Text>
-            {error.login && error.login.password && (
-              <Message variant="danger">{error.login.password}</Message>
-            )}
-          </Form.Text>
-        </Form.Group>
+
+        <PasswordInput
+          controlId="password"
+          label="Password"
+          placeholder="Enter Password"
+          value={password}
+          onChange={(e) => setPassword(e.currentTarget.value)}
+          errorMessage={error.login && error.login.password ? error.login.password : ""}
+        />
+
         <Button type="submit" variant="primary" className="my-2">
           Sign In
         </Button>
       </Form>
       <Row className="py-3">
         <Col>
-          New Customer?
-          <Link to={redirect ? `/register?redirect=${redirect}` : "/register"}>
-            Register
-          </Link>
+          New Customer?{" "}
+          <Link to={redirect ? `/register?redirect=${redirect}` : "/register"}>Register</Link>
         </Col>
       </Row>
     </FormContainer>

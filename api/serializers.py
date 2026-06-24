@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import Brand, Category, Product, Review, ShippingAddress, Order, OrderItem
+from api.models import Brand, Category, Product, Review, ShippingAddress, Order, OrderItem, Coupon, Wishlist, ContactMessage
 from django.contrib.auth.models import User
 
 
@@ -71,3 +71,35 @@ class OrderSerializer(serializers.ModelSerializer):
         user = obj.user
         serializer = UserSerializer(user)
         return serializer.data
+
+
+class CouponSerializer(serializers.ModelSerializer):
+    isValid = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Coupon
+        fields = ('id', 'code', 'discount', 'expiryDate', 'isActive', 'createdAt', 'isValid')
+
+    def get_isValid(self, obj):
+        return obj.is_valid()
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    product_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ('id', 'product', 'product_id', 'addedAt')
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        product_id = validated_data.pop('product_id')
+        wishlist_item, _ = Wishlist.objects.get_or_create(user=user, product_id=product_id)
+        return wishlist_item
+
+
+class ContactMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessage
+        fields = ('id', 'name', 'email', 'subject', 'message', 'isRead', 'createdAt')

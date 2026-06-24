@@ -1,11 +1,10 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Row, Col, ListGroup, Image, Card } from "react-bootstrap";
+import { Row, Col, ListGroup, Image, Card, Button, Alert } from "react-bootstrap";
 import httpService from "../services/httpService";
 import UserContext from "../context/userContext";
 import Loader from "../components/loader";
 import Message from "../components/message";
-import StripePaymentWrapper from "../components/stripePaymentWrapper";
 
 function OrderDetailsPage(props) {
   const [loading, setLoading] = useState(true);
@@ -159,11 +158,39 @@ function OrderDetailsPage(props) {
                 </ListGroup.Item>
               </ListGroup>
             </Card>
-            <Row className="p-2">
-              {!orderDetails.isPaid && (
-                <StripePaymentWrapper id={orderDetails.id} />
-              )}
+            <Row className="p-2 mb-2">
+              <Button
+                variant="outline-dark"
+                onClick={async () => {
+                  try {
+                    const response = await httpService.get(
+                      `/api/orders/${orderDetails.id}/invoice/`,
+                      { responseType: "blob" }
+                    );
+                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute("download", `ShopSphere_Invoice_${orderDetails.id}.pdf`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(url);
+                  } catch (e) {
+                    alert("Could not download invoice. Please try again.");
+                  }
+                }}
+              >
+                <i className="fas fa-file-pdf me-2"></i>Download Invoice PDF
+              </Button>
             </Row>
+            {!orderDetails.isPaid && (
+              <Alert variant="info" className="mt-2 small">
+                <i className="fas fa-info-circle me-2"></i>
+                {orderDetails.paymentMethod === "Cash on Delivery"
+                  ? "Payment will be collected at the time of delivery."
+                  : `Please complete your payment via ${orderDetails.paymentMethod}. Contact support with your Order ID #${orderDetails.id} to confirm payment.`}
+              </Alert>
+            )}
           </Col>
         </Row>
       )}

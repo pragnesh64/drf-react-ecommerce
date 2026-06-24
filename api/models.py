@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.validators import MaxValueValidator
-# Create your models here.
+from django.utils import timezone
 
 
 class Category(models.Model):
@@ -66,9 +66,9 @@ class Review(models.Model):
 class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,
                              on_delete=models.SET_NULL, null=True)
-    taxPrice = models.DecimalField(max_digits=7, decimal_places=2)
-    shippingPrice = models.DecimalField(max_digits=7, decimal_places=2)
-    totalPrice = models.DecimalField(max_digits=7, decimal_places=2)
+    taxPrice = models.DecimalField(max_digits=12, decimal_places=2)
+    shippingPrice = models.DecimalField(max_digits=12, decimal_places=2)
+    totalPrice = models.DecimalField(max_digits=12, decimal_places=2)
     paymentMethod = models.CharField(max_length=255, null=True, blank=True)
     isPaid = models.BooleanField(default=False)
     isDelivered = models.BooleanField(default=False)
@@ -89,7 +89,7 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     productName = models.CharField(max_length=255, null=True, blank=True)
     qty = models.IntegerField(null=True, blank=True, default=1)
-    price = models.DecimalField(max_digits=7, decimal_places=2)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
     image = models.ImageField(null=True, blank=True,
                               default='/placeholder.png')
 
@@ -107,3 +107,44 @@ class ShippingAddress(models.Model):
 
     def __str__(self) -> str:
         return self.address
+
+
+class Coupon(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    discount = models.DecimalField(max_digits=5, decimal_places=2, help_text="Discount percentage (e.g. 10 = 10%)")
+    expiryDate = models.DateField()
+    isActive = models.BooleanField(default=True)
+    createdAt = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        return self.isActive and self.expiryDate >= timezone.now().date()
+
+    def __str__(self):
+        return f"{self.code} ({self.discount}% off)"
+
+
+class Wishlist(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wishlist')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlisted_by')
+    addedAt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'product')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name}"
+
+
+class ContactMessage(models.Model):
+    name = models.CharField(max_length=200)
+    email = models.EmailField()
+    subject = models.CharField(max_length=300)
+    message = models.TextField()
+    isRead = models.BooleanField(default=False)
+    createdAt = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.subject} — {self.name}"
+
+    class Meta:
+        ordering = ('-createdAt',)

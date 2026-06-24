@@ -1,39 +1,49 @@
-import React, { useEffect, useState } from "react";
-import { Form, Button } from "react-bootstrap";
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from "react";
+import { Form } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
-function SearchBox({keyword,setKeyword}) {
+function SearchBox({ keyword, setKeyword }) {
   const [keywordText, setKeywordText] = useState(keyword);
   const navigate = useNavigate();
+  const debounceTimer = useRef(null);
+  const isMounted = useRef(false);
 
   const queryParams = new URLSearchParams(window.location.search);
-  const brandParam = queryParams.get("brand")
-    ? Number(queryParams.get("brand"))
-    : 0;
-  const categoryParam = queryParams.get("category")
-    ? Number(queryParams.get("category"))
-    : 0;
+  const brandParam = queryParams.get("brand") ? Number(queryParams.get("brand")) : 0;
+  const categoryParam = queryParams.get("category") ? Number(queryParams.get("category")) : 0;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    navigate(`/search?keyword=${keywordText}&brand=${brandParam}&category=${categoryParam}`);
-    setKeyword(keywordText);
-  };
+  useEffect(() => {
+    // Skip on first mount — only run when user actually types
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      if (keywordText.trim() === "") {
+        // Cleared — go back to home
+        setKeyword("");
+        navigate("/");
+      } else {
+        navigate(`/search?keyword=${keywordText}&brand=${brandParam}&category=${categoryParam}`);
+        setKeyword(keywordText);
+      }
+    }, 400);
+
+    return () => clearTimeout(debounceTimer.current);
+  }, [keywordText]);
 
   return (
-    <Form onSubmit={handleSubmit} style={{ display: "flex" }} className="p-1">
+    <Form style={{ display: "flex" }} className="p-1" onSubmit={(e) => e.preventDefault()}>
       <Form.Control
         type="text"
-        placeholder="Enter product name..."
+        placeholder="Search products..."
         value={keywordText}
-        onChange={(e) => {
-          setKeywordText(e.currentTarget.value);
-        }}
+        onChange={(e) => setKeywordText(e.currentTarget.value)}
         className="mx-2"
-      ></Form.Control>
-      <Button type="submit" variant="outline-success" className="p-2">
-        Submit
-      </Button>
+        style={{ minWidth: "220px" }}
+      />
     </Form>
   );
 }

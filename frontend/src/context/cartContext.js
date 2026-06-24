@@ -22,8 +22,10 @@ export const CartProvider = ({ children }) => {
   const [paymentMethod, setPaymentMethod] = useState(
     localStorage.getItem("paymentMethod")
       ? localStorage.getItem("paymentMethod")
-      : "Stripe"
+      : "Cash on Delivery"
   );
+  const [coupon, setCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
   const navigate = useNavigate();
   const {logout} = useContext(UserContext);
 
@@ -97,14 +99,34 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem("paymentMethod", method);
   };
 
+  const applyCoupon = async (code) => {
+    setCouponError("");
+    try {
+      const { data } = await httpService.post("/api/apply-coupon/", { code });
+      setCoupon(data);
+      return true;
+    } catch (ex) {
+      setCouponError(ex.response?.data?.detail || "Invalid coupon.");
+      setCoupon(null);
+      return false;
+    }
+  };
+
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponError("");
+  };
+
   const totalItemsPrice = Number(
     productsInCart
       .reduce((acc, prod) => acc + prod.qty * prod.price, 0)
       .toFixed(2)
   );
-  const shippingPrice = totalItemsPrice > 1000 ? (totalItemsPrice >= 2000 ? 0 : 100) : 250;
-  const taxPrice = Number((0.05 * totalItemsPrice).toFixed(2));
-  const totalPrice = totalItemsPrice + shippingPrice + taxPrice;
+  const discountAmount = coupon ? Number(((coupon.discount / 100) * totalItemsPrice).toFixed(2)) : 0;
+  const discountedItemsPrice = Number((totalItemsPrice - discountAmount).toFixed(2));
+  const shippingPrice = discountedItemsPrice > 1000 ? (discountedItemsPrice >= 2000 ? 0 : 100) : 250;
+  const taxPrice = Number((0.05 * discountedItemsPrice).toFixed(2));
+  const totalPrice = Number((discountedItemsPrice + shippingPrice + taxPrice).toFixed(2));
 
   const placeOrder = async () => {
     try {
@@ -117,14 +139,22 @@ export const CartProvider = ({ children }) => {
         shippingPrice,
         totalPrice,
       });
-      console.log(data);
       setProductsInCart([]);
       localStorage.removeItem("cartItems");
+      setCoupon(null);
       navigate(`/orders/${data.id}`);
     } catch (ex) {
-      if (ex.response && ex.response.status == 403) logout();
-      console.log(ex.response);
+      if (ex.response && ex.response.status === 403) logout();
+      const msg = ex.response?.data?.detail || ex.message || "Failed to place order.";
+      setError(msg);
     }
+  };
+
+  const clearCart = () => {
+    setProductsInCart([]);
+    localStorage.removeItem("cartItems");
+    setCoupon(null);
+    setError("");
   };
 
   const contextData = {
@@ -133,15 +163,22 @@ export const CartProvider = ({ children }) => {
     addItemToCart,
     updateItemQty,
     removeFromCart,
+    clearCart,
     shippingAddress,
     updateShippingAddress,
     paymentMethod,
     totalItemsPrice,
+    discountAmount,
+    discountedItemsPrice,
     shippingPrice,
     taxPrice,
     totalPrice,
     updatePaymentMethod,
     placeOrder,
+    coupon,
+    couponError,
+    applyCoupon,
+    removeCoupon,
   };
 
   return (

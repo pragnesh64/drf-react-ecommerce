@@ -4,15 +4,12 @@ import { Form, Button, Row, Col } from "react-bootstrap";
 import Message from "../components/message";
 import UserContext from "../context/userContext";
 import OrdersList from "../components/ordersList";
+import PasswordInput from "../components/passwordInput";
 
-function ProfilePage(props) {
+function ProfilePage() {
   const { userInfo, updateProfile } = useContext(UserContext);
-  const [username, setUsername] = useState(
-    userInfo && userInfo.username ? userInfo.username : ""
-  );
-  const [email, setEmail] = useState(
-    userInfo && userInfo.email ? userInfo.email : ""
-  );
+  const [username, setUsername] = useState(userInfo?.username || "");
+  const [email, setEmail] = useState(userInfo?.email || "");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState({ show: false, success: false });
   const navigate = useNavigate();
@@ -32,9 +29,7 @@ function ProfilePage(props) {
       <Col md={4}>
         <h1>Profile</h1>
         {status.show && status.success && (
-          <Message variant="info">
-            <h4>Successfully Updated!</h4>
-          </Message>
+          <Message variant="info"><h4>Successfully Updated!</h4></Message>
         )}
         <Form onSubmit={handleSubmit}>
           <Form.Group controlId="username" className="my-2">
@@ -43,33 +38,28 @@ function ProfilePage(props) {
               type="text"
               placeholder="Enter Username"
               value={username}
-              onChange={(e) => {
-                setUsername(e.currentTarget.value);
-              }}
-            ></Form.Control>
+              onChange={(e) => setUsername(e.currentTarget.value)}
+            />
           </Form.Group>
+
           <Form.Group controlId="email" className="my-2">
             <Form.Label>Email</Form.Label>
             <Form.Control
               type="email"
               placeholder="Enter Email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.currentTarget.value);
-              }}
-            ></Form.Control>
+              onChange={(e) => setEmail(e.currentTarget.value)}
+            />
           </Form.Group>
-          <Form.Group controlId="password" className="my-2">
-            <Form.Label>Password</Form.Label>
-            <Form.Control
-              type="password"
-              placeholder="Enter Password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.currentTarget.value);
-              }}
-            ></Form.Control>
-          </Form.Group>
+
+          <PasswordInput
+            controlId="password"
+            label="New Password"
+            placeholder="Leave blank to keep current"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+          />
+
           <Button type="submit" variant="primary" className="my-2">
             Update Profile
           </Button>

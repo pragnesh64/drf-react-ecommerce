@@ -15,7 +15,7 @@ function OrdersList(props) {
   useEffect(() => {
     const fecthOrders = async () => {
       try {
-        const { data } = await httpService.get("/api/orders/");
+        const { data } = await httpService.get("/api/orders/?mine=true");
         setOrders(data);
       } catch (ex) {
         if (ex.response && ex.response.status == 403) logout();

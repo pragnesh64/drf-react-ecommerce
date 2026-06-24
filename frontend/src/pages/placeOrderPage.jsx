@@ -1,5 +1,5 @@
-import React, { useContext } from "react";
-import { Button, Row, Col, ListGroup, Image, Card } from "react-bootstrap";
+import React, { useContext, useState } from "react";
+import { Button, Row, Col, ListGroup, Image, Card, Alert } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import Message from "../components/message";
 import CheckoutSteps from "../components/checkoutSteps";
@@ -17,17 +17,21 @@ function PlacerOrderPage(props) {
     shippingPrice,
     taxPrice,
     totalPrice,
-    placeOrder
+    placeOrder,
+    clearCart,
+    error,
   } = useContext(CartContext);
   const navigate = useNavigate();
+  const [placing, setPlacing] = useState(false);
 
   if (!userInfo || !userInfo.username) navigate("/login");
   if (!shippingAddress || !shippingAddress.address) navigate("/shipping");
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    const id = await placeOrder();
-
+    setPlacing(true);
+    await placeOrder();
+    setPlacing(false);
   };
 
   return (
@@ -35,6 +39,16 @@ function PlacerOrderPage(props) {
       <FormContainer>
         <CheckoutSteps step1 step2 step3 step4 />
       </FormContainer>
+
+      {error && (
+        <Alert variant="danger" className="d-flex justify-content-between align-items-center">
+          <span><i className="fas fa-exclamation-circle me-2"></i>{error}</span>
+          <Button size="sm" variant="outline-danger" onClick={() => { clearCart(); navigate("/"); }}>
+            Clear Cart &amp; Go Home
+          </Button>
+        </Alert>
+      )}
+
       <Row>
         <Col md={8}>
           <ListGroup variant="flush">
@@ -56,7 +70,7 @@ function PlacerOrderPage(props) {
             </ListGroup.Item>
             <ListGroup.Item>
               <h2>Order Items</h2>
-              {productsInCart.length == 0 ? (
+              {productsInCart.length === 0 ? (
                 <Message variant="info">Your Cart is Empty</Message>
               ) : (
                 <ListGroup variant="flush">
@@ -126,10 +140,10 @@ function PlacerOrderPage(props) {
                   <Button
                     type="button"
                     className="btn-block"
-                    disabled={productsInCart.length == 0}
+                    disabled={productsInCart.length === 0 || placing}
                     onClick={handlePlaceOrder}
                   >
-                    Place Order
+                    {placing ? "Placing Order..." : "Place Order"}
                   </Button>
                 </Row>
               </ListGroup.Item>
