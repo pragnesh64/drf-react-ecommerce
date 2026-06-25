@@ -14,7 +14,7 @@ function BrandCard({brand}) {
             <strong>{brand.title}</strong>
           </Card.Title>
         </Link>
-        {/* <Card.Text as="p">{brand.description}</Card.Text> */}
+
       </Card.Body>
     </Card>
   );

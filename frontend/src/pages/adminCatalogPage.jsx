@@ -39,11 +39,11 @@ function CrudTable({ title, icon, items, onAdd, onEdit, onDelete }) {
                 <td><strong>{item.title}</strong></td>
                 <td className="text-muted small">{item.description || "—"}</td>
                 <td>
-                  <Button size="sm" variant="outline-primary" className="me-2" onClick={() => onEdit(item)}>
-                    <i className="fas fa-edit"></i>
+                  <Button size="sm" variant="link" className="text-primary p-0 me-3" onClick={() => onEdit(item)}>
+                    <i className="fas fa-edit fs-5"></i>
                   </Button>
-                  <Button size="sm" variant="outline-danger" onClick={() => onDelete(item)}>
-                    <i className="fas fa-trash"></i>
+                  <Button size="sm" variant="link" className="text-danger p-0" onClick={() => onDelete(item)}>
+                    <i className="fas fa-trash fs-5"></i>
                   </Button>
                 </td>
               </tr>
@@ -69,6 +69,7 @@ function AdminCatalogPage() {
   const [modal, setModal] = useState({ show: false, type: null, editId: null });
   const [form, setForm] = useState({ title: "", description: "" });
   const [formError, setFormError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
 
   // Delete confirm
   const [deleteModal, setDeleteModal] = useState({ show: false, type: null, item: null });
@@ -85,8 +86,8 @@ function AdminCatalogPage() {
         httpService.get("/api/brands/"),
         httpService.get("/api/category/"),
       ]);
-      setBrands(b.data);
-      setCategories(c.data);
+      setBrands(b.data.sort((x, y) => y.id - x.id));
+      setCategories(c.data.sort((x, y) => y.id - x.id));
     } catch (ex) {
       if (ex.response?.status === 403) logout();
       setError("Could not load data.");
@@ -98,18 +99,21 @@ function AdminCatalogPage() {
     setModal({ show: true, type, editId: null });
     setForm({ title: "", description: "" });
     setFormError("");
+    setFormErrors({});
   };
 
   const openEdit = (type, item) => {
     setModal({ show: true, type, editId: item.id });
     setForm({ title: item.title, description: item.description || "" });
     setFormError("");
+    setFormErrors({});
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) { setFormError("Title is required."); return; }
+    if (!form.title.trim()) { setFormErrors({ title: ["Title is required."] }); return; }
     setSaving(true);
     setFormError("");
+    setFormErrors({});
     const endpoint = modal.type === "brand" ? "/api/brands/" : "/api/category/";
     try {
       if (modal.editId) {
@@ -118,12 +122,16 @@ function AdminCatalogPage() {
         else setCategories(categories.map((c) => c.id === modal.editId ? data : c));
       } else {
         const { data } = await httpService.post(endpoint, form);
-        if (modal.type === "brand") setBrands([...brands, data]);
-        else setCategories([...categories, data]);
+        if (modal.type === "brand") setBrands([data, ...brands]);
+        else setCategories([data, ...categories]);
       }
       setModal({ show: false, type: null, editId: null });
     } catch (ex) {
-      setFormError(ex.response?.data?.title?.[0] || "Failed to save. Try again.");
+      if (ex.response?.status === 400 && ex.response.data) {
+        setFormErrors(ex.response.data);
+      } else {
+        setFormError("Failed to save. Try again.");
+      }
     }
     setSaving(false);
   };
@@ -193,6 +201,7 @@ function AdminCatalogPage() {
         </Modal.Header>
         <Modal.Body>
           {formError && <Message variant="danger">{formError}</Message>}
+          {formErrors.non_field_errors && <Message variant="danger">{formErrors.non_field_errors[0]}</Message>}
           <Form.Group className="mb-3">
             <Form.Label>Title <span className="text-danger">*</span></Form.Label>
             <Form.Control
@@ -200,8 +209,12 @@ function AdminCatalogPage() {
               placeholder={modal.type === "brand" ? "e.g. Samsung" : "e.g. Electronics"}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
+              isInvalid={!!formErrors.title}
               autoFocus
             />
+            <Form.Control.Feedback type="invalid">
+              {formErrors.title && formErrors.title[0]}
+            </Form.Control.Feedback>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Description</Form.Label>
@@ -211,7 +224,11 @@ function AdminCatalogPage() {
               placeholder="Optional description..."
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
+              isInvalid={!!formErrors.description}
             />
+            <Form.Control.Feedback type="invalid">
+              {formErrors.description && formErrors.description[0]}
+            </Form.Control.Feedback>
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>

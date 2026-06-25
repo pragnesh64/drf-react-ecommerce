@@ -100,29 +100,7 @@ function ContactPage() {
         </Form>
       </Card>
 
-      <Row className="mt-5">
-        <Col md={4} className="text-center mb-3">
-          <div className="p-3 bg-light rounded">
-            <i className="fas fa-envelope fa-2x mb-2 text-secondary"></i>
-            <h6>Email</h6>
-            <p className="small text-muted mb-0">support@shopsphere.com</p>
-          </div>
-        </Col>
-        <Col md={4} className="text-center mb-3">
-          <div className="p-3 bg-light rounded">
-            <i className="fas fa-phone fa-2x mb-2 text-secondary"></i>
-            <h6>Phone</h6>
-            <p className="small text-muted mb-0">+91 98765 43210</p>
-          </div>
-        </Col>
-        <Col md={4} className="text-center mb-3">
-          <div className="p-3 bg-light rounded">
-            <i className="fas fa-clock fa-2x mb-2 text-secondary"></i>
-            <h6>Hours</h6>
-            <p className="small text-muted mb-0">Mon–Sat: 9am – 6pm</p>
-          </div>
-        </Col>
-      </Row>
+
     </FormContainer>
   );
 }
