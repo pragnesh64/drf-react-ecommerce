@@ -16,7 +16,6 @@ from api.serializers import (BrandSerializer, CategorySerializer, OrderSerialize
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
-import stripe
 import io
 
 
@@ -68,8 +67,7 @@ class ReviewView(APIView):
         user = request.user
         product = get_object_or_404(Product, id=pk)
 
-        alreadyExists = product.review_set.filter(user=user).exists()
-        if alreadyExists:
+        if product.review_set.filter(user=user).exists():
             return Response({'detail': 'Product Already Reviewed!'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not data.get('rating') or int(data['rating']) == 0:
@@ -99,12 +97,14 @@ def placeOrder(request):
     orderItems = data['orderItems']
 
     if not orderItems or len(orderItems) == 0:
-        return Response({'detail': 'No Order items'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'No order items provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
     with transaction.atomic():
         order = Order.objects.create(
-            user=user, paymentMethod=data['paymentMethod'],
-            taxPrice=data['taxPrice'], shippingPrice=data['shippingPrice'],
+            user=user,
+            paymentMethod=data['paymentMethod'],
+            taxPrice=data['taxPrice'],
+            shippingPrice=data['shippingPrice'],
             totalPrice=data['totalPrice']
         )
         ShippingAddress.objects.create(
@@ -114,26 +114,26 @@ def placeOrder(request):
             postalCode=data['shippingAddress']['postalCode'],
             country=data['shippingAddress']['country'],
         )
-        for x in orderItems:
+        for item in orderItems:
             try:
-                product = Product.objects.get(id=x['id'])
+                product = Product.objects.get(id=item['id'])
             except Product.DoesNotExist:
-                product_label = x.get('name') or ('ID ' + str(x['id']))
+                name = item.get('name') or ('ID ' + str(item['id']))
                 return Response(
-                    {'detail': 'Product "' + product_label + '" no longer exists. Please remove it from your cart and try again.'},
+                    {'detail': 'Product "' + name + '" no longer exists. Please remove it from your cart.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            if product.countInStock < x['qty']:
+            if product.countInStock < item['qty']:
                 return Response(
-                    {'detail': f"\"{product.name}\" has only {product.countInStock} item(s) in stock."},
+                    {'detail': f'"{product.name}" has only {product.countInStock} item(s) left in stock.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             OrderItem.objects.create(
                 product=product, order=order,
-                productName=product.name, qty=x['qty'],
+                productName=product.name, qty=item['qty'],
                 price=product.price, image=product.image.name
             )
-            product.countInStock -= x['qty']
+            product.countInStock -= item['qty']
             product.save()
 
         serializer = OrderSerializer(order)
@@ -152,38 +152,6 @@ class OrderViewSet(GenericViewSet, ListModelMixin, RetrieveModelMixin):
             return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
 
-
-stripe.api_key = settings.STRIPE_API_KEY
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def updateOrderToPaid(request, pk):
-    payment_intent = stripe.PaymentIntent.retrieve(request.data['payment_intent'])
-    if payment_intent.status == "succeeded":
-        order = get_object_or_404(Order, id=pk)
-        order.isPaid = True
-        order.paidAt = datetime.now()
-        order.save()
-        return Response('Payment was successful completed!')
-    return Response('An unexpected error occurred! Please contact our customer care.')
-
-
-class StripePaymentView(APIView):
-    def post(self, request):
-        try:
-            order = get_object_or_404(Order, id=request.data['order'])
-            intent = stripe.PaymentIntent.create(
-                amount=int(order.totalPrice * 100),
-                currency='inr',
-                automatic_payment_methods={'enabled': True},
-            )
-            return Response({'clientSecret': intent['client_secret']})
-        except Exception as e:
-            return Response({'error': 'Something went wrong while creating stripe checkout session!'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# ─── Coupon ────────────────────────────────────────────────────────────────────
 
 class CouponViewSet(ModelViewSet):
     queryset = Coupon.objects.all()
@@ -204,8 +172,6 @@ def applyCoupon(request):
         return Response({'detail': 'Invalid coupon code.'}, status=status.HTTP_404_NOT_FOUND)
 
 
-# ─── Wishlist ──────────────────────────────────────────────────────────────────
-
 class WishlistViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, DestroyModelMixin):
     serializer_class = WishlistSerializer
     permission_classes = [IsAuthenticated]
@@ -216,8 +182,6 @@ class WishlistViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, DestroyM
     def get_serializer_context(self):
         return {'request': self.request}
 
-
-# ─── Contact ───────────────────────────────────────────────────────────────────
 
 class ContactMessageView(APIView):
     permission_classes = [AllowAny]
@@ -245,8 +209,6 @@ class ContactMessageListView(APIView):
         return Response({'detail': 'Marked as read.'})
 
 
-# ─── Dashboard Analytics ───────────────────────────────────────────────────────
-
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def dashboardStats(request):
@@ -258,9 +220,7 @@ def dashboardStats(request):
     pending_orders = Order.objects.filter(isPaid=False).count()
     delivered_orders = Order.objects.filter(isDelivered=True).count()
     unread_messages = ContactMessage.objects.filter(isRead=False).count()
-
     recent_orders = Order.objects.order_by('-createdAt')[:5]
-    recent_orders_data = OrderSerializer(recent_orders, many=True).data
 
     return Response({
         'totalUsers': total_users,
@@ -270,11 +230,9 @@ def dashboardStats(request):
         'pendingOrders': pending_orders,
         'deliveredOrders': delivered_orders,
         'unreadMessages': unread_messages,
-        'recentOrders': recent_orders_data,
+        'recentOrders': OrderSerializer(recent_orders, many=True).data,
     })
 
-
-# ─── PDF Invoice ───────────────────────────────────────────────────────────────
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -290,7 +248,7 @@ def downloadInvoice(request, pk):
         from reportlab.lib.units import cm
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        from reportlab.lib.enums import TA_CENTER
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm,
@@ -308,8 +266,7 @@ def downloadInvoice(request, pk):
         story.append(Paragraph("ShopSphere", title_style))
         story.append(Paragraph("Your trusted online store", sub_style))
         story.append(Spacer(1, 0.5*cm))
-
-        story.append(Paragraph(f"<b>INVOICE</b>", section_style))
+        story.append(Paragraph("<b>INVOICE</b>", section_style))
         story.append(Spacer(1, 0.3*cm))
 
         info_data = [
@@ -333,19 +290,15 @@ def downloadInvoice(request, pk):
 
         sa = order.shippingAddress
         story.append(Paragraph("Shipping Address", section_style))
-        addr_text = f"{sa.address}, {sa.city}, {sa.postalCode}, {sa.country}"
-        story.append(Paragraph(addr_text, styles['Normal']))
+        story.append(Paragraph(f"{sa.address}, {sa.city}, {sa.postalCode}, {sa.country}", styles['Normal']))
         story.append(Spacer(1, 0.5*cm))
 
         story.append(Paragraph("Order Items", section_style))
         item_data = [['#', 'Product', 'Qty', 'Unit Price', 'Total']]
         for i, item in enumerate(order.orderitem_set.all(), 1):
             item_data.append([
-                str(i),
-                item.productName,
-                str(item.qty),
-                f"Rs.{item.price}",
-                f"Rs.{(item.qty * item.price):.2f}",
+                str(i), item.productName, str(item.qty),
+                f"Rs.{item.price}", f"Rs.{(item.qty * item.price):.2f}",
             ])
 
         items_table = Table(item_data, colWidths=[1*cm, 9*cm, 2*cm, 3*cm, 3*cm])
@@ -380,7 +333,6 @@ def downloadInvoice(request, pk):
             ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor('#2c3e50')),
         ]))
         story.append(summary_table)
-
         story.append(Spacer(1, 1*cm))
         story.append(Paragraph("Thank you for shopping with ShopSphere!", sub_style))
 
@@ -391,4 +343,4 @@ def downloadInvoice(request, pk):
         return response
 
     except ImportError:
-        return Response({'detail': 'PDF generation not available. Install reportlab.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({'detail': 'PDF generation not available.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

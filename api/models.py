@@ -111,7 +111,7 @@ class ShippingAddress(models.Model):
 
 class Coupon(models.Model):
     code = models.CharField(max_length=50, unique=True)
-    discount = models.DecimalField(max_digits=5, decimal_places=2, help_text="Discount percentage (e.g. 10 = 10%)")
+    discount = models.DecimalField(max_digits=5, decimal_places=2)
     expiryDate = models.DateField()
     isActive = models.BooleanField(default=True)
     createdAt = models.DateTimeField(auto_now_add=True)

@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Row, Col, Table, Button, Modal, Form, Badge } from "react-bootstrap";
+import React, { useContext, useEffect, useState, useRef } from "react";
+import { Row, Col, Table, Button, Modal, Form, Badge, Image } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import httpService from "../services/httpService";
 import UserContext from "../context/userContext";
@@ -27,6 +27,9 @@ function AdminProductsPage() {
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState("");
   const [formErrors, setFormErrors] = useState({});
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -57,6 +60,8 @@ function AdminProductsPage() {
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setImageFile(null);
+    setImagePreview(null);
     setFormError("");
     setFormErrors({});
     setShowModal(true);
@@ -72,9 +77,18 @@ function AdminProductsPage() {
       brand: product.brand || "",
       category: product.category || "",
     });
+    setImageFile(null);
+    setImagePreview(product.image || null);
     setFormError("");
     setFormErrors({});
     setShowModal(true);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleSave = async () => {
@@ -91,11 +105,23 @@ function AdminProductsPage() {
     setFormError("");
     setFormErrors({});
     try {
+      let payload;
+      let config = {};
+
+      if (imageFile) {
+        payload = new FormData();
+        Object.entries(form).forEach(([k, v]) => payload.append(k, v));
+        payload.append("image", imageFile);
+        config = { headers: { "Content-Type": "multipart/form-data" } };
+      } else {
+        payload = form;
+      }
+
       if (editingId) {
-        const { data } = await httpService.put(`/api/products/${editingId}/`, form);
+        const { data } = await httpService.put(`/api/products/${editingId}/`, payload, config);
         setProducts(products.map((p) => (p.id === editingId ? data : p)));
       } else {
-        const { data } = await httpService.post("/api/products/", form);
+        const { data } = await httpService.post("/api/products/", payload, config);
         setProducts([data, ...products]);
       }
       setShowModal(false);
@@ -103,7 +129,7 @@ function AdminProductsPage() {
       if (ex.response?.status === 400 && ex.response.data) {
         setFormErrors(ex.response.data);
       } else {
-        setFormError("Failed to save product.");
+        setFormError("Failed to save product. Please try again.");
       }
     }
     setSaving(false);
@@ -145,6 +171,7 @@ function AdminProductsPage() {
         <thead className="table-dark">
           <tr>
             <th>#</th>
+            <th>Image</th>
             <th>Name</th>
             <th>Price</th>
             <th>Stock</th>
@@ -157,6 +184,13 @@ function AdminProductsPage() {
           {products.map((p, index) => (
             <tr key={p.id}>
               <td>{index + 1}</td>
+              <td>
+                <Image
+                  src={p.image || "/images/placeholder.png"}
+                  alt={p.name}
+                  style={{ width: "48px", height: "48px", objectFit: "cover", borderRadius: "6px" }}
+                />
+              </td>
               <td>{p.name}</td>
               <td>₹{p.price}</td>
               <td>
@@ -181,12 +215,49 @@ function AdminProductsPage() {
 
       {/* Add / Edit Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered size="lg">
-        <Modal.Header closeButton className="bg-dark text-white">
-          <Modal.Title>{editingId ? "Edit Product" : "Add New Product"}</Modal.Title>
+        <Modal.Header
+          closeButton
+          closeVariant="white"
+          style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)", color: "#fff" }}
+        >
+          <Modal.Title>
+            <i className={`fas ${editingId ? "fa-edit" : "fa-plus-circle"} me-2`}></i>
+            {editingId ? "Edit Product" : "Add New Product"}
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body className="pt-3">
           {formError && <Message variant="danger">{formError}</Message>}
           {formErrors.non_field_errors && <Message variant="danger">{formErrors.non_field_errors[0]}</Message>}
+          {/* Image Upload Section */}
+          <div
+            className="mb-4 p-3 rounded text-center"
+            style={{ border: "2px dashed #dee2e6", background: "#f8f9fa", cursor: "pointer" }}
+            onClick={() => fileInputRef.current.click()}
+          >
+            {imagePreview ? (
+              <div>
+                <Image
+                  src={imagePreview}
+                  alt="Preview"
+                  style={{ maxHeight: "160px", maxWidth: "100%", objectFit: "contain", borderRadius: "8px", marginBottom: "8px" }}
+                />
+                <p className="text-muted small mb-0">Click to change image</p>
+              </div>
+            ) : (
+              <div className="py-2">
+                <i className="fas fa-cloud-upload-alt fa-3x text-muted mb-2"></i>
+                <p className="mb-1 fw-semibold">Click to upload product image</p>
+                <p className="text-muted small mb-0">PNG, JPG, WEBP supported</p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleImageChange}
+            />
+          </div>
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
@@ -198,7 +269,7 @@ function AdminProductsPage() {
                   isInvalid={!!formErrors.name}
                 />
                 <Form.Control.Feedback type="invalid">
-                  {formErrors.name && formErrors.name[0]}
+                  {formErrors.name?.[0]}
                 </Form.Control.Feedback>
               </Form.Group>
             </Col>
@@ -213,7 +284,7 @@ function AdminProductsPage() {
                   isInvalid={!!formErrors.price}
                 />
                 <Form.Control.Feedback type="invalid">
-                  {formErrors.price && formErrors.price[0]}
+                  {formErrors.price?.[0]}
                 </Form.Control.Feedback>
               </Form.Group>
             </Col>
@@ -228,7 +299,7 @@ function AdminProductsPage() {
                   isInvalid={!!formErrors.countInStock}
                 />
                 <Form.Control.Feedback type="invalid">
-                  {formErrors.countInStock && formErrors.countInStock[0]}
+                  {formErrors.countInStock?.[0]}
                 </Form.Control.Feedback>
               </Form.Group>
             </Col>
@@ -248,7 +319,7 @@ function AdminProductsPage() {
                   ))}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">
-                  {formErrors.brand && formErrors.brand[0]}
+                  {formErrors.brand?.[0]}
                 </Form.Control.Feedback>
               </Form.Group>
             </Col>
@@ -266,7 +337,7 @@ function AdminProductsPage() {
                   ))}
                 </Form.Select>
                 <Form.Control.Feedback type="invalid">
-                  {formErrors.category && formErrors.category[0]}
+                  {formErrors.category?.[0]}
                 </Form.Control.Feedback>
               </Form.Group>
             </Col>
@@ -282,14 +353,21 @@ function AdminProductsPage() {
               isInvalid={!!formErrors.description}
             />
             <Form.Control.Feedback type="invalid">
-              {formErrors.description && formErrors.description[0]}
+              {formErrors.description?.[0]}
             </Form.Control.Feedback>
           </Form.Group>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+        <Modal.Footer style={{ borderTop: "1px solid #dee2e6" }}>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            <i className="fas fa-times me-2"></i>Cancel
+          </Button>
           <Button variant="dark" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : editingId ? "Save Changes" : "Add Product"}
+            {saving
+              ? <><i className="fas fa-spinner fa-spin me-2"></i>Saving...</>
+              : editingId
+                ? <><i className="fas fa-save me-2"></i>Save Changes</>
+                : <><i className="fas fa-plus me-2"></i>Add Product</>
+            }
           </Button>
         </Modal.Footer>
       </Modal>
@@ -297,7 +375,7 @@ function AdminProductsPage() {
       {/* Delete Confirm Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Delete</Modal.Title>
+          <Modal.Title><i className="fas fa-exclamation-triangle text-danger me-2"></i>Confirm Delete</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This cannot be undone.

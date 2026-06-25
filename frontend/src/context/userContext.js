@@ -26,7 +26,6 @@ export const UserProvider = ({ children }) => {
         username,
         password,
       });
-      // httpService.setJwt(data.access);
       setAuthTokens({ access: data.access, refresh: data.refresh });
       setUserInfo({
         username: data.username,
@@ -73,7 +72,6 @@ export const UserProvider = ({ children }) => {
     setUserInfo(null);
     localStorage.removeItem("authTokens");
     localStorage.removeItem("userInfo");
-    // httpService.setJwt(undefined)
   };
 
   const refresh = async () => {
@@ -81,7 +79,6 @@ export const UserProvider = ({ children }) => {
       const { data } = await httpService.post("/auth/jwt/refresh/", {
         refresh: authTokens.refresh,
       });
-      // httpService.setJwt(data.access)
       setAuthTokens({ access: data.access, refresh: data.refresh });
       localStorage.setItem(
         "authTokens",
@@ -104,10 +101,9 @@ export const UserProvider = ({ children }) => {
   },[loading,authTokens])
 
   useEffect(() => {
-    let timeInterval = 1000 * 60 * 60; // Refresh tokens after every 1 hour
     const interval = setInterval(() => {
       if (authTokens) refresh();
-    }, timeInterval);
+    }, 1000 * 60 * 60);
     return () => clearInterval(interval);
   }, [authTokens]);
 
